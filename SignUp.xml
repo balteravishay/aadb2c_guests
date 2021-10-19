@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TrustFrameworkPolicy xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.microsoft.com/online/cpim/schemas/2013/06" PolicySchemaVersion="0.3.0.0" TenantId="navaorg.onmicrosoft.com" PolicyId="B2C_1A_signup" DeploymentMode="Development" UserJourneyRecorderEndpoint="urn:journeyrecorder:applicationinsights" PublicPolicyUri="http://navaorg.onmicrosoft.com/B2C_1A_signup">
+
+  <BasePolicy>
+    <TenantId>navaorg.onmicrosoft.com</TenantId>
+    <PolicyId>B2C_1A_TrustFrameworkExtensions</PolicyId>
+  </BasePolicy>
+  <BuildingBlocks>
+
+    <ClaimsSchema>
+      <!-- User Identifier claim -->
+      <ClaimType Id="UserIdentifier">
+        <DisplayName>User Identifier</DisplayName>
+        <DataType>string</DataType>
+        <AdminHelpText>User Identification</AdminHelpText>
+      </ClaimType>
+
+      <!-- Stores the error message for unsolicited request (a request without id_token_hint) -->
+      <ClaimType Id="errorMessage">
+        <DisplayName>Error</DisplayName>
+        <DataType>string</DataType>
+       <UserHelpText>Add help text here</UserHelpText>
+        <UserInputType>Paragraph</UserInputType>
+     </ClaimType>  
+    </ClaimsSchema>
+
+    <ClaimsTransformations>
+      <!-- Initiates the errorMessage claims type with the error message-->
+      <ClaimsTransformation Id="CreateUnsolicitedErrorMessage" TransformationMethod="CreateStringClaim">
+        <InputParameters>
+          <InputParameter Id="value" DataType="string" Value="You cannot sign-up without invitation" />
+        </InputParameters>
+        
+        <OutputClaims>
+          <OutputClaim ClaimTypeReferenceId="errorMessage" TransformationClaimType="createdClaim" />
+        </OutputClaims>
+      </ClaimsTransformation>
+
+      <!-- Initiates the errorMessage claims type with the error message user not found-->
+      <ClaimsTransformation Id="CreateUserNotFoundErrorMessage" TransformationMethod="CreateStringClaim">
+        <InputParameters>
+          <InputParameter Id="value" DataType="string" Value="You aren't registered in the system!" />
+        </InputParameters>
+        <OutputClaims>
+          <OutputClaim ClaimTypeReferenceId="errorMessage" TransformationClaimType="createdClaim" />
+        </OutputClaims>
+      </ClaimsTransformation>
+
+      <ClaimsTransformation Id="CopyUserIdentifier" TransformationMethod="CopyClaim">
+        <InputClaims>
+          <InputClaim ClaimTypeReferenceId="UserIdentifier" TransformationClaimType="inputClaim"/>
+        </InputClaims>
+        <OutputClaims>
+          <OutputClaim ClaimTypeReferenceId="objectId" TransformationClaimType="outputClaim"/>
+        </OutputClaims>
+      </ClaimsTransformation>
+
+    </ClaimsTransformations>
+
+  </BuildingBlocks>
+
+  <ClaimsProviders>
+    <ClaimsProvider>
+      <DisplayName>ID Token Hint ClaimsProvider</DisplayName>
+      <!-- This technical profile specifies how B2C should validate id token, and what claims you want B2C to extract from the token. -->
+      <TechnicalProfiles>
+        <TechnicalProfile Id="IdTokenHint_ExtractClaims">
+          <DisplayName>ID Token Hint TechnicalProfile</DisplayName>
+          <Protocol Name="None" />
+          <Metadata>
+            <Item Key="IdTokenAudience">0b03387d-34d6-4bd2-bb6d-53cc93abd146</Item>
+            <Item Key="issuer">https://localhost</Item>
+          </Metadata>
+          <CryptographicKeys>
+            <Key Id="client_secret" StorageReferenceId="B2C_1A_EncryptionKey" />
+          </CryptographicKeys>
+          <!-- Read UserIdentifier claim from the id_token_hint -->
+          <!-- <OutputClaims>
+            
+            <OutputClaim ClaimTypeReferenceId="UserIdentifier" Required="true" />
+          </OutputClaims> -->
+          <OutputClaimsTransformations>
+            <OutputClaimsTransformation ReferenceId="CopyUserIdentifier" />
+          </OutputClaimsTransformations>
+        </TechnicalProfile>
+      </TechnicalProfiles>
+    </ClaimsProvider>
+   
+    <ClaimsProvider>
+      <DisplayName>Self Asserted</DisplayName>
+      <TechnicalProfiles>
+        <!-- Show error message -->
+        <TechnicalProfile Id="SelfAsserted-Error">
+          <DisplayName>Unsolicited error message</DisplayName>
+          <Protocol Name="Proprietary" Handler="Web.TPEngine.Providers.SelfAssertedAttributeProvider, Web.TPEngine, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"/>
+          <Metadata>
+            <Item Key="ContentDefinitionReferenceId">api.selfasserted</Item>
+            <!-- Remove the continue button-->
+            <Item Key="setting.showContinueButton">false</Item>
+         </Metadata>
+          <InputClaims>
+            <InputClaim ClaimTypeReferenceId="errorMessage"/>
+          </InputClaims>
+          <OutputClaims>
+            <OutputClaim ClaimTypeReferenceId="errorMessage"/>
+          </OutputClaims>
+        </TechnicalProfile>
+
+        <!-- Show unsolicited error message-->
+        <TechnicalProfile Id="SelfAsserted-Unsolicited">
+          <InputClaimsTransformations>
+            <InputClaimsTransformation ReferenceId="CreateUnsolicitedErrorMessage" />
+          </InputClaimsTransformations>
+          <IncludeTechnicalProfile ReferenceId="SelfAsserted-Error" />
+        </TechnicalProfile>
+
+        <!-- Show user not found error message-->
+        <TechnicalProfile Id="SelfAsserted-UserNotFound">
+          <InputClaimsTransformations>
+            <InputClaimsTransformation ReferenceId="CreateUserNotFoundErrorMessage" />
+          </InputClaimsTransformations>
+          <IncludeTechnicalProfile ReferenceId="SelfAsserted-Error" />
+        </TechnicalProfile>
+      </TechnicalProfiles>
+    </ClaimsProvider>
+
+
+    <ClaimsProvider>
+      <DisplayName>Local Account</DisplayName>
+      <TechnicalProfiles>
+        <!-- This technical profile signs up a user wihtout registering him to the directory. returning "none" as object Id  -->
+        <TechnicalProfile Id="LocalAccountSignUpWithLogonEmailCustom">
+          <DisplayName>No Email signup</DisplayName>
+          <Protocol Name="Proprietary" Handler="Web.TPEngine.Providers.SelfAssertedAttributeProvider, Web.TPEngine, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" />
+          <Metadata>
+            <Item Key="EnforceEmailVerification">False</Item>
+            <Item Key="IpAddressClaimReferenceId">IpAddress</Item>
+            <Item Key="ContentDefinitionReferenceId">api.localaccountsignup</Item>
+            <Item Key="language.button_continue">Create</Item>
+          </Metadata>
+          <CryptographicKeys>
+            <Key Id="issuer_secret" StorageReferenceId="B2C_1A_TokenSigningKeyContainer" />
+          </CryptographicKeys>
+          <InputClaims>
+            <InputClaim ClaimTypeReferenceId="UserIdentifier" Required="true" />
+          </InputClaims>
+          <OutputClaims>
+            <OutputClaim ClaimTypeReferenceId="displayName" />
+            <!-- <OutputClaim ClaimTypeReferenceId="objectId" DefaultValue="none" /> -->
+            <OutputClaim ClaimTypeReferenceId="givenName" />
+            <OutputClaim ClaimTypeReferenceId="surName" />
+          </OutputClaims>
+          <!-- <IncludeTechnicalProfile ReferenceId="SetObjectId" /> -->
+         
+        </TechnicalProfile>
+      </TechnicalProfiles>
+    </ClaimsProvider>
+  </ClaimsProviders>
+  <UserJourneys>
+
+    <UserJourney Id="SignUpWithHintOrSignIn">
+      <OrchestrationSteps>
+
+        <OrchestrationStep Order="1" Type="GetClaims" CpimIssuerTechnicalProfileReferenceId="IdTokenHint_ExtractClaims"></OrchestrationStep>
+
+
+        <OrchestrationStep Order="2" Type="CombinedSignInAndSignUp" ContentDefinitionReferenceId="api.signuporsignin">
+          <Preconditions>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="true">
+              <Value>UserIdentifier</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+          </Preconditions>
+          <ClaimsProviderSelections>
+            <ClaimsProviderSelection ValidationClaimsExchangeId="LocalAccountSigninEmailExchange" />
+          </ClaimsProviderSelections>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="LocalAccountSigninEmailExchange" TechnicalProfileReferenceId="SelfAsserted-LocalAccountSignin-Email" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+
+         <!-- Sample: Check if user tries to run the policy without invitation -->
+         <OrchestrationStep Order="3" Type="ClaimsExchange">
+          <Preconditions>
+             <Precondition Type="ClaimsExist" ExecuteActionsIf="true">
+               <Value>UserIdentifier</Value>
+               <Action>SkipThisOrchestrationStep</Action>
+             </Precondition>
+             <Precondition Type="ClaimsExist" ExecuteActionsIf="true">
+              <Value>objectId</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+           </Preconditions>        
+           <ClaimsExchanges>
+             <ClaimsExchange Id="SelfAsserted-Unsolicited" TechnicalProfileReferenceId="SelfAsserted-Unsolicited" />
+           </ClaimsExchanges>
+         </OrchestrationStep>
+
+
+        <OrchestrationStep Order="4" Type="ClaimsExchange">
+          <Preconditions>
+            <Precondition Type="ClaimsExist" ExecuteActionsIf="true">
+              <Value>objectId</Value>
+              <Action>SkipThisOrchestrationStep</Action>
+            </Precondition>
+          </Preconditions>
+          <ClaimsExchanges>
+            <ClaimsExchange Id="SignUpWithLogonEmailExchange" TechnicalProfileReferenceId="LocalAccountSignUpWithLogonEmailCustom" />
+          </ClaimsExchanges>
+        </OrchestrationStep>
+
+        <OrchestrationStep Order="5" Type="SendClaims" CpimIssuerTechnicalProfileReferenceId="JwtIssuer"></OrchestrationStep>
+
+      </OrchestrationSteps>
+      <ClientDefinition ReferenceId="DefaultWeb" />
+    </UserJourney>
+  </UserJourneys>
+
+  <RelyingParty>
+    <DefaultUserJourney ReferenceId="SignUpWithHintOrSignIn" />
+    <UserJourneyBehaviors>
+
+      <JourneyInsights TelemetryEngine="ApplicationInsights" InstrumentationKey="539a3c97-10e4-484c-8b75-c0e12ee0767c" DeveloperMode="true" ClientEnabled="false" ServerEnabled="true" TelemetryVersion="1.0.0" />
+
+    </UserJourneyBehaviors>
+    <TechnicalProfile Id="PolicyProfile">
+      <DisplayName>PolicyProfile</DisplayName>
+      <Protocol Name="OpenIdConnect" />
+      <!-- <InputClaimsTransformations>
+        <InputClaimsTransformation ReferenceId="CopyUserIdentifier" />
+      </InputClaimsTransformations> -->
+      <InputClaims>
+        <InputClaim ClaimTypeReferenceId="UserIdentifier" Required="true" />
+      </InputClaims>
+      <OutputClaims>
+        <OutputClaim ClaimTypeReferenceId="displayName" />
+        <OutputClaim ClaimTypeReferenceId="givenName" />
+        <OutputClaim ClaimTypeReferenceId="surname" />
+        <OutputClaim ClaimTypeReferenceId="UserIdentifier" />
+        <OutputClaim ClaimTypeReferenceId="objectId" PartnerClaimType="sub" DefaultValue="none" />
+        <OutputClaim ClaimTypeReferenceId="identityProvider" DefaultValue="" />
+        <OutputClaim ClaimTypeReferenceId="tenantId" AlwaysUseDefaultValue="true" DefaultValue="{Policy:TenantObjectId}" />
+      </OutputClaims>
+      <SubjectNamingInfo ClaimType="sub" />
+    </TechnicalProfile>
+  </RelyingParty>
+</TrustFrameworkPolicy>
